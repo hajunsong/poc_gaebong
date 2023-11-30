@@ -1,0 +1,661 @@
+#include "mainwindow.h"
+#include "ui_mainwindow.h"
+
+MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWindow)
+{
+    ui->setupUi(this);
+
+    gripper = new ZimmerGripper();
+    memset(gripper_write_reg, 0, sizeof(uint16_t)*NUM_SEND_REG);
+    memset(gripper_read_reg, 0, sizeof(uint16_t)*NUM_RECV_REG);
+
+    connect(ui->btnRobotConnect, SIGNAL(clicked()), this, SLOT(btnRobotConnectClicked()));
+    connect(ui->btnGripperConnect, SIGNAL(clicked()), this, SLOT(btnGripperConnectClicked()));
+    connect(ui->btnInit, SIGNAL(clicked()), this, SLOT(btnInitClicked()));
+    connect(ui->btnRun, SIGNAL(clicked()), this, SLOT(btnRunClicked()));
+
+//    robotUpdateTimer = new QTimer(this);
+//    robotUpdateTimer->setInterval(10);
+//    connect(robotUpdateTimer, SIGNAL(timeout()), this, SLOT(robotStateUpdate()));
+
+//    gripperUpdateTimer = new QTimer(this);
+//    gripperUpdateTimer->setInterval(10);
+//    connect(gripperUpdateTimer, SIGNAL(timeout()), this, SLOT(gripperStateUpdate()));
+
+    connect(this, SIGNAL(robotUpdate()), this, SLOT(robotStateUpdate()));
+    connect(this, SIGNAL(gripperUpdate()), this, SLOT(gripperStateUpdate()));
+
+    txtJoint = {ui->txtJoint1, ui->txtJoint2, ui->txtJoint3, ui->txtJoint4, ui->txtJoint5, ui->txtJoint6};
+    txtPose = {ui->txtPose1, ui->txtPose2, ui->txtPose3, ui->txtPose4, ui->txtPose5, ui->txtPose6};
+
+    mainState = -1;
+    pocState = -1;
+    robot_init = false;
+    gripper_init = false;
+    robot_connected = false;
+    gripper_connected = false;
+
+    move_complete = false;
+    moving = false;
+    cmd_flag = false;
+
+    door_cnt = 0;
+
+    mainTimer = new QTimer(this);
+    mainTimer->setInterval(10);
+    connect(mainTimer, SIGNAL(timeout()), this, SLOT(update()));
+    mainTimer->start();
+
+    customSettings = new CustomSettings(ui);
+    customSettings->loadConfigFile();
+}
+
+MainWindow::~MainWindow()
+{
+    customSettings->saveConfigFile();
+    delete customSettings;
+    delete ui;
+}
+
+void MainWindow::update()
+{
+    if(robot_connected){
+        emit robotUpdate();
+    }
+
+    if(gripper_connected){
+        emit gripperUpdate();
+    }
+
+    if(robot_connected && gripper_connected){
+        switch(mainState){
+            case Wait:
+            {
+                if(pocState > 0) {
+                    mainState = Start;
+                }
+                break;
+            }
+            case Init:
+            {
+                if(!robot_init){
+                    moveJoint(JS_ready, duration_slow);
+                    robot_init = true;
+                }
+                if(!gripper_init && robot_init){
+                    gripper->gripper_init();
+                    gripper_init = true;
+                }
+                pocState = 0;
+                break;
+            }
+            case Start:
+            {
+                POCControlFunc();
+                break;
+            }
+            default:
+                break;
+        }
+    }
+}
+
+void MainWindow::POCControlFunc()
+{
+    switch(pocState){
+        case Pick:
+        {
+            if(POCPickObj()){
+                pocState++;
+            }
+            break;
+        }
+        case Chuck:
+        {
+            if(POCChuckObj("insert")){
+                pocState++;
+            }
+            break;
+        }
+        case Door:
+        {
+            if(POCDoorSwitch()){
+                pocState++;
+            }
+            break;
+        }
+        case UnChuck:
+        {
+            if(POCChuckObj("remove")){
+                pocState++;
+            }
+            break;
+        }
+        case Place:
+        {
+            if(POCPlaceObj()){
+                pocState++;
+            }
+            break;
+        }
+//        // pick obj 1 ~ 6
+//        case 1:
+//        {
+//            moveJoint(JS_ready2pick2, duration_fast);
+//            break;
+//        }
+//        case 2:
+//        {
+//            moveJoint(JS_ready2pick3, duration_slow);
+//            break;
+//        }
+//        case 3:
+//        {
+//            double offset[6] = {0, 0, WS_to_obj_z, 0, 0, 0};
+//            movePose(offset, duration_super_slow, "rel");
+//            break;
+//        }
+//        case 4:
+//        {
+//            moveGripperOn();
+//            break;
+//        }
+//        case 5:
+//        {
+//            double offset[6] = {0, 0, -WS_to_obj_z, 0, 0, 0};
+//            movePose(offset, duration_slow, "rel");
+//            break;
+//        }
+//        case 6:
+//        {
+//            moveJoint(JS_withdraw_pick, duration_fast);
+//            break;
+//        }
+//        // chuck obj 7 ~ 13
+//        case 7:
+//        {
+//            moveJoint(JS_to_chuck1, duration_fast);
+//            break;
+//        }
+//        case 8:
+//        {
+//            moveJoint(JS_to_chuck3, duration_fast);
+//            break;
+//        }
+//        case 9:
+//        {
+//            double offset[6] = {0, WS_insert_y, 0, 0, 0, 0};
+//            movePose(offset, duration_super_slow, "rel");
+//            break;
+//        }
+//        case 10: // foot switch
+//        {
+//            pocState = 11;
+//            break;
+//        }
+//        case 11:
+//        {
+//            moveGripperOff();
+//            break;
+//        }
+//        case 12:
+//        {
+//            double offset[6] = {0, -WS_insert_y, 0, 0, 0, 0};
+//            movePose(offset, duration_super_slow, "rel");
+//            break;
+//        }
+//        case 13:
+//        {
+//            moveJoint(JS_ready, duration_fast);
+//            break;
+//        }
+//        // push door switch 14 ~ 21
+//        case 14:
+//        {
+//            moveJoint(JS_to_door_SW1, duration_fast);
+//            break;
+//        }
+//        case 15:
+//        {
+//            moveJoint(JS_to_door_SW2, duration_fast);
+//            break;
+//        }
+//        case 16:
+//        {
+//            moveJoint(JS_over_door_SW, duration_slow);
+//            break;
+//        }
+//        case 17:
+//        {
+//            double offset[6] = {WS_push_SW_x, 0, 0, 0, 0, 0};
+//            movePose(offset, duration_super_slow, "rel");
+//            break;
+//        }
+//        case 18:
+//        {
+//            double offset[6] = {-WS_push_SW_x, 0, 0, 0, 0, 0};
+//            movePose(offset, duration_super_slow, "rel");
+//            break;
+//        }
+//        case 19:
+//        {
+//            moveJoint(JS_to_door_SW2, duration_fast);
+//            break;
+//        }
+//        case 20:
+//        {
+//            moveJoint(JS_to_door_SW1, duration_fast);
+//            break;
+//        }
+//        case 21:
+//        {
+//            moveJoint(JS_ready, duration_fast);
+//            door_cnt++;
+//            if(door_cnt == 1) pocState = 13;
+//            break;
+//        }
+//        // chuck obj 22 ~ 28
+//        case 22:
+//        {
+//            moveJoint(JS_to_chuck1, duration_fast);
+//            break;
+//        }
+//        case 23:
+//        {
+//            moveJoint(JS_to_chuck3, duration_fast);
+//            break;
+//        }
+//        case 24:
+//        {
+//            double offset[6] = {0, WS_insert_y, 0, 0, 0, 0};
+//            movePose(offset, duration_super_slow, "rel");
+//            break;
+//        }
+//        case 25: // foot switch
+//            pocState = 26;
+//            break;
+//        case 26:
+//        {
+//            moveGripperOn();
+//            break;
+//        }
+//        case 27:
+//        {
+//            double offset[6] = {0, -WS_insert_y, 0, 0, 0, 0};
+//            movePose(offset, duration_super_slow, "rel");
+//            break;
+//        }
+//        case 28:
+//        {
+//            moveJoint(JS_ready, duration_fast);
+//            break;
+//        }
+//        // place obj 29 ~ 35
+//        case 29:
+//        {
+//            moveJoint(JS_to_place1, duration_fast);
+//            break;
+//        }
+//        case 30:
+//        {
+//            moveJoint(JS_over_place, duration_fast);
+//            break;
+//        }
+//        case 31:
+//        {
+//            double offset[6] = {0, 0, WS_place_z, 0, 0, 0};
+//            movePose(offset, duration_super_slow, "rel");
+//            break;
+//        }
+//        case 32:
+//        {
+//            moveGripperOff();
+//            break;
+//        }
+//        case 33:
+//        {
+//            double offset[6] = {0, 0, -WS_place_z, 0, 0, 0};
+//            movePose(offset, duration_slow, "rel");
+//            break;
+//        }
+//        case 34:
+//        {
+//            moveJoint(JS_to_place1, duration_fast);
+//            break;
+//        }
+//        case 35:
+//        {
+//            moveJoint(JS_ready, duration_fast);
+//            break;
+//        }
+        default:
+            break;
+    }
+}
+
+bool MainWindow::POCPickObj()
+{
+
+}
+
+bool MainWindow::POCChuckObj(string opt)
+{
+
+}
+
+bool MainWindow::POCDoorSwitch()
+{
+
+}
+
+bool MainWindow::POCPlaceObj()
+{
+
+}
+
+void MainWindow::moveJoint(double cmd[], double vel)
+{
+    if(!cmd_flag){
+        SetVelocity(vel);
+        usleep(10000);
+        movej(cmd);
+        cmd_type = MoveJ;
+        memcpy(cmd_value, cmd, sizeof(double)*6);
+        pthread_create(&move_wait_thread, NULL, move_wait_func, this);
+    }
+}
+
+void MainWindow::movePose(double cmd[], double vel, std::string ref)
+{
+    if(!cmd_flag){
+        SetVelocity(vel);
+        usleep(10000);
+
+        if(ref == "abs"){
+
+        }
+
+        if(ref == "rel"){
+            for(unsigned int i = 0; i < 3; i++){
+                cmd[i] += pos[i];
+            }
+            double cmd_mat[16] = {0,};
+            for(unsigned int i = 0; i < 3; i++){
+                for(unsigned int j = 0; j < 3; j++){
+                    cmd_mat[i*4 + j] = mat[i*3 + j];
+                }
+            }
+            cmd_mat[0*4 + 3] = cmd[0];
+            cmd_mat[1*4 + 3] = cmd[1];
+            cmd_mat[2*4 + 3] = cmd[2];
+            cmd_mat[15] = 1;
+            movel(base, cmd_mat);
+            cmd_type = MoveL;
+            memcpy(cmd_value, cmd, sizeof(double)*6);
+            pthread_create(&move_wait_thread, NULL, move_wait_func, this);
+        }
+    }
+}
+
+void MainWindow::moveGripperOn()
+{
+    if(!cmd_flag){
+//        gripper->gripper_grip(false);
+        cmd_type = GripOn;
+        usleep(10000);
+        pthread_create(&move_wait_thread, NULL, move_wait_func, this);
+    }
+}
+
+void MainWindow::moveGripperOff()
+{
+    if(!cmd_flag){
+//        gripper->gripper_release(false);
+        cmd_type = GripOff;
+        usleep(10000);
+        pthread_create(&move_wait_thread, NULL, move_wait_func, this);
+    }
+}
+
+void MainWindow::btnRobotConnectClicked()
+{
+    if(ui->btnRobotConnect->text().compare("Connect")){
+//        robotUpdateTimer->stop();
+        RobotDisconnect();
+
+        ui->btnRobotConnect->setText("Connect");
+
+        robot_connected = false;
+    }
+    else{
+        RobotChange(UR10, ui->txtRobotIP->text().toStdString().c_str(), ui->txtRobotPORT->text().toInt());
+        RobotConnect();
+
+//        robotUpdateTimer->start();
+
+        usleep(10000);
+
+        ui->btnRobotConnect->setText("Disconnect");
+
+        robot_connected = true;
+
+//        usleep(1000000);
+
+//        double q_goal[6] = {M_PI_2, -M_PI_2, M_PI_2, -M_PI_2, -M_PI_2, 0};
+//        movej(q_goal);
+    }
+}
+
+void MainWindow::btnGripperConnectClicked()
+{
+    if(ui->btnGripperConnect->text().compare("Connect")){
+//        gripperUpdateTimer->stop();
+        gripper->disconnect();
+
+        ui->btnGripperConnect->setText("Connect");
+
+        gripper_connected = false;
+    }
+    else{
+        gripper->connect(ui->txtGripperIP->text().toStdString(), ui->txtGripperPORT->text().toInt());
+
+//        gripperUpdateTimer->start();
+
+        usleep(10000);
+
+        ui->btnGripperConnect->setText("Disconnect");
+
+        gripper_connected = true;
+    }
+}
+
+void MainWindow::btnInitClicked()
+{
+    mainState = Init;
+}
+
+void MainWindow::btnRunClicked()
+{
+    mainState = Start;
+    pocState = 1;
+    door_cnt = 0;
+}
+
+void MainWindow::robotStateUpdate()
+{
+    robotInfor = RobotInfo();
+
+    state = robotInfor.state;
+    ui->txtRobotStatus->setText(QString::number(state));
+
+    for(unsigned int i = 0; i < 6; i++){
+        txtJoint[i]->setText(QString::number(robotInfor.jnt[i]));
+    }
+    for(unsigned int i = 0; i < 3; i++){
+        txtPose[i]->setText(QString::number(robotInfor.mat[i*4 + 3]));
+    }
+
+    for(unsigned int i = 0; i < 6; i++){
+        jnt[i] = robotInfor.jnt[i];
+    }
+
+    for(unsigned int i = 0; i < 3; i++){
+        for(unsigned int j = 0; j < 3; j++){
+            mat[i*3 + j] = robotInfor.mat[i*4 + j];
+        }
+    }
+    for(unsigned int i = 0; i < 3; i++){
+        pos[i] = robotInfor.mat[i*4 + 3];
+    }
+
+//    printf("\n%f, %f, %f, %f\n", robotInfor.mat[0], robotInfor.mat[1], robotInfor.mat[2], robotInfor.mat[3]);
+//    printf("%f, %f, %f, %f\n", robotInfor.mat[4], robotInfor.mat[5], robotInfor.mat[6], robotInfor.mat[7]);
+//    printf("%f, %f, %f, %f\n", robotInfor.mat[8], robotInfor.mat[9], robotInfor.mat[10], robotInfor.mat[11]);
+//    printf("%f, %f, %f, %f\n\n", robotInfor.mat[12], robotInfor.mat[13], robotInfor.mat[14], robotInfor.mat[15]);
+
+    double ang_x, ang_y, ang_z;
+    Conf.InverseRot(mat, &ang_x,&ang_y,&ang_z);
+
+    txtPose[3]->setText(QString::number(ang_x));
+    txtPose[4]->setText(QString::number(ang_y));
+    txtPose[5]->setText(QString::number(ang_z));
+}
+
+void MainWindow::gripperStateUpdate()
+{
+    gripper->get_write_reg(gripper_write_reg);
+    gripper->get_read_reg(gripper_read_reg);
+
+    ui->txtBasePosition->setText(QString::number(gripper_write_reg[4]));
+    ui->txtShiftPosition->setText(QString::number(gripper_write_reg[5]));
+    ui->txtWorkPosition->setText(QString::number(gripper_write_reg[7]));
+    ui->txtCurrentPosition->setText(QString::number(gripper_read_reg[2]));
+
+    ui->txtErrorNum->setText(QString::number(((gripper_read_reg[0]&0x0004) == 0x0004)) + "(" + QString::number(gripper_read_reg[1], 16) + ")");
+//    ui->txtErrorNum->setText(QString::number(((gripper_read_reg[0]&0x0004) == 0x0004)) + "(" + QString::number((gripper_read_reg[0]&0x0008) == 0x0008) + ")");
+
+//    if(((gripper_read_reg[0]&0x0004) == 0x0004)){
+//        gripper->gripper_init();
+//    }
+}
+
+void* MainWindow::move_wait_func(void *arg){
+    MainWindow *pThis = static_cast<MainWindow*>(arg);
+
+    pThis->move_complete = false;
+    pThis->cmd_flag = true;
+
+    unsigned int cnt = 0;
+    bool moving = false;
+    bool run = true;
+    while(true){
+        if(!run) break;
+        switch(pThis->cmd_type){
+            case MoveJ:
+            {
+                double err_max = abs(pThis->cmd_value[0] - pThis->jnt[0]);
+                double err = 0;
+                for(unsigned int i = 1; i < 6; i++){
+                    err = abs(pThis->cmd_value[i] - pThis->jnt[i]);
+                    err_max = err > err_max ? err : err_max;
+                }
+                //        std::cout << err_max << std::endl;
+                if(pThis->state == 2.0) {
+                    moving = true;
+                    pThis->moving = true;
+                }
+                if(moving && pThis->state == 1.0) {
+                    std::cout << "move finish" << std::endl;
+                    run = false;
+                }
+                if(cnt >= 300 && pThis->state == 1.0) {
+                    std::cout << "move wait timeout " << cnt << std::endl;
+                    run = false;
+                }
+                if(err_max < 1e-3) {
+                    std::cout << "goal reach" << std::endl;
+                    run = false;
+                }
+                cnt++;
+
+                break;
+            }
+            case MoveL:
+            {
+                double err_max = abs(pThis->cmd_value[0] - pThis->pos[0]);
+                double err = 0;
+                for(unsigned int i = 1; i < 3; i++){
+                    err = abs(pThis->cmd_value[i] - pThis->pos[i]);
+                    err_max = err > err_max ? err : err_max;
+                }
+                //        std::cout << err_max << std::endl;
+                if(pThis->state == 2.0) {
+                    moving = true;
+                    pThis->moving = true;
+                }
+                if(moving && pThis->state == 1.0) {
+                    std::cout << "move finish" << std::endl;
+                    run = false;
+                }
+                if(cnt >= 300 && pThis->state == 1.0) {
+                    std::cout << "move wait timeout " << cnt << std::endl;
+                    run = false;
+                }
+                if(err_max < 1e-3) {
+                    std::cout << "goal reach" << std::endl;
+                    run = false;
+                }
+                cnt++;
+                break;
+            }
+            case GripOn:
+            {
+                pThis->gripper->gripper_grip();
+                moving = false;
+                pThis->moving = false;
+                run = false;
+                pThis->cmd_type = None;
+                break;
+            }
+            case GripOff:
+            {
+                pThis->gripper->gripper_release();
+                moving = false;
+                pThis->moving = false;
+                run = false;
+                pThis->cmd_type = None;
+
+//                if((pThis->gripper_read_reg[0]&0x0004) == 0x0004){
+//                    moving = true;
+//                    pThis->moving = true;
+//                }
+//                if((pThis->gripper_read_reg[0]&0x0008) == 0x0008 && moving){
+//                    moving = false;
+//                    pThis->moving = false;
+//                    run = false;
+//                }
+//                if((pThis->gripper_read_reg[0]&0x0008) == 0x0008 && cnt >= 2000){
+//                    moving = false;
+//                    pThis->moving = false;
+//                    run = false;
+//                    std::cout << "move wait timeout " << cnt << std::endl;
+//                }
+//                cnt++;
+                break;
+            }
+            default:
+                break;
+        }
+
+        usleep(1000);
+    }
+
+    pThis->mainState = Wait;
+    pThis->move_complete = true;
+    pThis->moving = false;
+    pThis->cmd_flag = false;
+
+    std::cout << "\nfinish move wait thread\n" << std::endl;
+
+    return nullptr;
+}

@@ -1,0 +1,57 @@
+// define positions
+double JS_ready[6] = {1.84024,-2.5470473766326904,1.923918604850769,0.9265651106834412,1.5014007091522217,-3.1651318073272705};
+
+// positions related to door
+double JS_to_door_SW2[6] = {1.4337400197982788,-2.6825778484344482,1.8206619024276733,-0.7187622785568237,-1.5197819471359253,-1.6940726041793823};
+double JS_over_door_SW[6] = {2.09418, -1.2079, 1.48664, -1.85585, -1.57283, -1.05129};
+double WS_push_SW_x = 0.621958 - 0.59577;
+
+// positions related to picking obj
+double JS_ready2pick2[6] = {0.297308,-2.71073317527771,2.1584970951080322,-1.0338462591171265,1.5014338493347168,-3.1651346683502197};
+double JS_ready2pick3[6] = {0.577095, -1.23603, 2.29238, -1.06028, 0.574473, -3.14432};
+double WS_to_obj_z = (0.0410696 - 0.144147);
+double JS_withdraw_pick[6] = {1.84024,-2.87771,2.05892,0.787739,1.56417,-3.17643};
+double Pick_obj_offset_x = 0.134;
+double Pick_obj_offset_y = 0.155;
+
+// positions related to inserting obj
+double JS_to_chuck1[6] = {3.1087989807128906,-2.5671565532684326,1.9647854566574097,0.7822391390800476,1.5014032125473022,-1.598871111869812};
+double JS_to_chuck3[6] = {3.28152, -0.866334, 0.90561, 0.54758, 1.72946, -1.49208};
+double WS_near_chuck[3] = {0.964033, 0.295926, 0.463868};
+double WS_chuck[3] = {0.968007, 0.405974, 0.463021};
+double WS_insert_y = 0;
+
+// position related to removing obj
+double JS_to_unchuck1[6] = {3.1087989807128906,-2.5671565532684326,1.9647854566574097,0.7822391390800476,1.5014032125473022,-4.63993};
+double JS_to_unchuck3[6] = {3.24827, -0.876048, 0.928063, 0.53003, 1.66687, -4.6523};
+double WS_remove_y = 0.4038 - 0.270512;
+
+// positions related to placing obj
+double JS_over_place[6] = {2.04099, -2.00399, 2.34944, -1.9217, -1.57058, -1.10471};
+double WS_place_z = (0.320823 - 0.429711);
+
+// positions related to re-picking obj
+double JS_ready2repick2[6] = {0.6812613606452942,-2.71073317527771,2.1584970951080322,-1.0338462591171265,1.5014338493347168, -3.1439731121063232};
+double JS_ready2repick3[6] = {2.08778, -1.96676, 2.3264, -1.93651, -1.5708, -1.05806};
+double JS_withdraw_repick[6] = {3.478485345840454,-2.595405340194702,2.1256344318389893,0.43774667382240295,1.5634772777557373,-3.178921699523926};
+double WS_repick_z = 0.3217531 - 0.431356;
+
+// positions related to re-placing obj
+double JS_over_replace[6] = {1.76592, -0.727673, 1.32078, -0.596243, 1.76337, -3.14399};
+double WS_replace_z = (0.0469771 - 0.150919) - 0.005;
+double Place_obj_offset_x = 0.134;
+double Place_obj_offset_y = 0.155;
+
+// test position related to picking obj
+double TJS_ready2pick2[6] = {0.297308,-2.71073317527771,2.1584970951080322,-1.0338462591171265,1.5014338493347168,-3.1651346683502197};
+double TJS_ready2pick3[6] = {0.577095, -1.23603, 2.29238, -1.06028, 0.574473, -3.14432};
+double TWS_to_obj_z = (0.0410696 - 0.144147);
+double TJS_withdraw_pick[6] = {1.84024,-2.87771,2.05892,0.787739,1.56417,-3.17643};
+double TPick_obj_offset_x = 0.134;
+double TPick_obj_offset_y = 0.155;
+
+// test position related to placing obj
+double TJS_over_place[6] = {1.76592, -0.727673, 1.32078, -0.596243, 1.76337, -3.14399};
+double TWS_place_z = (0.0469771 - 0.150919);
+double TPlace_obj_offset_x = 0.134;
+double TPlace_obj_offset_y = 0.155;
