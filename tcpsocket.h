@@ -34,7 +34,9 @@ public:
 	void setIP(std::string addr){ip = addr;}
 
 	void sendData(unsigned char data);
-	bool recvData();
+//	bool recvData();
+
+	void getRecvData(unsigned char data[3]){memcpy(data, recv_data, 3);}
 
 private:
 	int port;
@@ -58,6 +60,8 @@ private:
 	static void* comm_func(void *arg);
 
 	bool send_flag, recv_flag, recv_complete;
+
+	unsigned char recv_data[3];
 };
 }
 

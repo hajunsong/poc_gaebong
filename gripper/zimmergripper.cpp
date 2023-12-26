@@ -211,7 +211,7 @@ void ZimmerGripper::gripper_init()
     reg_write[3] = gripper_force*256 + gripper_velocity;
     reg_write[4] = 500;
     reg_write[5] = 1000;
-	reg_write[7] = 3500;
+	reg_write[7] = 4000;
 
     init_flag = false;
     comm_step = 0;
@@ -231,7 +231,7 @@ void ZimmerGripper::gripper_grip(bool sync)
         reg_write[3] = gripper_force*256 + gripper_velocity;
         reg_write[4] = 500;
         reg_write[5] = 1000;
-		reg_write[7] = 3500;
+		reg_write[7] = 4000;
 
         comm_step = 0;
         send_flag = true;
@@ -253,7 +253,7 @@ void ZimmerGripper::gripper_release(bool sync)
         reg_write[3] = gripper_force*256 + gripper_velocity;
         reg_write[4] = 500;
         reg_write[5] = 1000;
-		reg_write[7] = 3500;
+		reg_write[7] = 4000;
 
         comm_step = 0;
         send_flag = true;
@@ -284,7 +284,7 @@ void ZimmerGripper::gripper_custom(uint16_t position, uint8_t velocity, uint8_t 
         else{
             reg_write[4] = position;
             reg_write[5] = 2000;
-			reg_write[7] = 3500;
+			reg_write[7] = 4000;
             grip_flag = false;
         }
 

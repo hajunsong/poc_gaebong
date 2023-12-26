@@ -70,38 +70,51 @@ void *TcpSocket::comm_func(void *arg)
 	pThis->comm_thread_run = true;
 
 	while(pThis->comm_thread_run){
-		if(pThis->send_flag){
-			int sendByteLen = send(pThis->clientSockFD, pThis->bufSend, static_cast<size_t>(pThis->lenSend), 0);
-			std::cout << "send byte len : " << (int)sendByteLen << std::endl;
-			if(sendByteLen > 0){
-			}
-			else{
-				std::cout << "Send error!!!" << std::endl;
-				pThis->comm_thread_run = false;
-				break;
-			}
-			pThis->send_flag = false;
+		memset(pThis->bufRecv, 0, TCP::MAXRECEIVEBUFSIZE);
+		int recvByteLen = recv(pThis->clientSockFD, pThis->bufRecv, TCP::MAXRECEIVEBUFSIZE, 0);
+//		std::cout << "recv byte len : " << (int)recvByteLen << std::endl;
+		if(recvByteLen == 0){
+			std::cout << "Recv error!!!" << std::endl;
+			pThis->comm_thread_run = false;
+			break;
 		}
-		if(pThis->recv_flag){
-			pThis->recv_complete = false;
-			memset(pThis->bufRecv, 0, TCP::MAXRECEIVEBUFSIZE);
-			int recvByteLen = recv(pThis->clientSockFD, pThis->bufRecv, TCP::MAXRECEIVEBUFSIZE, 0);
-			std::cout << "recv byte len : " << (int)recvByteLen << std::endl;
-			if(recvByteLen > 0 && pThis->bufRecv[0] == '0'){
-				pThis->recv_flag = false;
-				pThis->recv_complete = true;
+		else if(recvByteLen > 0){
+			if(recvByteLen == 3){
+				memcpy(pThis->recv_data, pThis->bufRecv, 3);
 			}
-//			else if(recvByteLen == -1){
-//				pThis->recv_complete = false;
+		}
+//		if(pThis->send_flag){
+//			int sendByteLen = send(pThis->clientSockFD, pThis->bufSend, static_cast<size_t>(pThis->lenSend), 0);
+//			std::cout << "send byte len : " << (int)sendByteLen << std::endl;
+//			if(sendByteLen > 0){
 //			}
-			else if(recvByteLen == 0){
-				std::cout << "Recv error!!!" << std::endl;
-				pThis->comm_thread_run = false;
-				break;
-			}
-			pThis->recv_flag = false;
-		}
-		usleep(2000000);
+//			else{
+//				std::cout << "Send error!!!" << std::endl;
+//				pThis->comm_thread_run = false;
+//				break;
+//			}
+//			pThis->send_flag = false;
+//		}
+//		if(pThis->recv_flag){
+//			pThis->recv_complete = false;
+//			memset(pThis->bufRecv, 0, TCP::MAXRECEIVEBUFSIZE);
+//			int recvByteLen = recv(pThis->clientSockFD, pThis->bufRecv, TCP::MAXRECEIVEBUFSIZE, 0);
+//			std::cout << "recv byte len : " << (int)recvByteLen << std::endl;
+//			if(recvByteLen > 0 && pThis->bufRecv[0] == '0'){
+//				pThis->recv_flag = false;
+//				pThis->recv_complete = true;
+//			}
+////			else if(recvByteLen == -1){
+////				pThis->recv_complete = false;
+////			}
+//			else if(recvByteLen == 0){
+//				std::cout << "Recv error!!!" << std::endl;
+//				pThis->comm_thread_run = false;
+//				break;
+//			}
+//			pThis->recv_flag = false;
+//		}
+//		usleep(2000000);
 	}
 
 	std::cout << "Finished comm func" << std::endl;
@@ -119,16 +132,16 @@ void TcpSocket::sendData(unsigned char data)
 	}
 }
 
-bool TcpSocket::recvData()
-{
-	if(!recv_flag){
-		recv_flag = true;
-	}
+//bool TcpSocket::recvData()
+//{
+//	if(!recv_flag){
+//		recv_flag = true;
+//	}
 
-	usleep(2000000);
+//	usleep(2000000);
 
-	return recv_complete;
-}
+//	return recv_complete;
+//}
 
 void TcpSocket::initSocket()
 {
